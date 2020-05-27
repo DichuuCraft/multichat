@@ -3,7 +3,9 @@ package com.hadroncfy.multichat;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Collection;
 
@@ -60,20 +62,20 @@ public class MultiChat {
         }
         try {
             File configFile = getConfigFile();
-            if (!configFile.exists()){
-                config = new Config();
-                configFile.createNewFile();
-                OutputStreamWriter os = new OutputStreamWriter(new FileOutputStream(configFile));
-                os.append(gson.toJson(config));
-                os.close();
-                logger.info("created config file");
-                return;
+            if (configFile.exists()){
+                try (InputStreamReader reader = new InputStreamReader(new FileInputStream(configFile), StandardCharsets.UTF_8)){
+                    config = gson.fromJson(reader, Config.class);
+                }
             }
-            String content = IOUtils.toString(new FileInputStream(configFile));
-            config = gson.fromJson(content, Config.class);
-            logger.info("Loaded config");
+            else {
+                config = new Config();
+            }
+            try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(configFile), StandardCharsets.UTF_8)){
+                writer.write(gson.toJson(config));
+            }
+            logger.info("created config file");
         }
-        catch(Exception e){
+        catch(Throwable e){
             logger.error("Cannot load config file", e);
         }
     }
