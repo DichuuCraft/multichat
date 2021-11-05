@@ -2,19 +2,22 @@ package com.hadroncfy.multichat.componentrenderer;
 
 import java.util.Optional;
 
+import javax.swing.text.JTextComponent.KeyBinding;
+
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-import net.kyori.text.Component;
-import net.kyori.text.ComponentBuilder;
-import net.kyori.text.KeybindComponent;
-import net.kyori.text.ScoreComponent;
-import net.kyori.text.SelectorComponent;
-import net.kyori.text.TextComponent;
-import net.kyori.text.TranslatableComponent;
-import net.kyori.text.event.ClickEvent;
-import net.kyori.text.event.HoverEvent;
-import net.kyori.text.renderer.ComponentRenderer;
-import net.kyori.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.ComponentBuilder;
+import net.kyori.adventure.text.KeybindComponent;
+import net.kyori.adventure.text.ScoreComponent;
+import net.kyori.adventure.text.SelectorComponent;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.TranslatableComponent;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.renderer.ComponentRenderer;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+
 
 // Copied a lot of code from https://github.com/KyoriPowered/text/blob/master/api/src/main/java/net/kyori/text/renderer/FriendlyComponentRenderer.java
 // I really dont know a better choice...
@@ -24,7 +27,7 @@ public abstract class AbstractTextComponentRenderer<C> implements ComponentRende
 
     private String renderToString(String txt, @NonNull C c){
         ComponentBuilder<?, ?> cb = renderText(txt, c);
-        return LegacyComponentSerializer.legacy().serialize(cb.build());
+        return LegacyComponentSerializer.legacyAmpersand().serialize(cb.build());
     }
 
     @Override
@@ -36,17 +39,17 @@ public abstract class AbstractTextComponentRenderer<C> implements ComponentRende
             final ComponentBuilder<?, ?> builder = renderText(((TextComponent) component).content(), context);
             return this.deepRender(component, builder, context).build();
         } else if(component instanceof KeybindComponent) {
-            final KeybindComponent.Builder builder = KeybindComponent.builder(((KeybindComponent) component).keybind());
+            // final KeybindComponent.Builder builder = KeybindComponent.builder(((KeybindComponent) component).keybind());
+            final KeybindComponent.Builder builder = Component.keybind(((KeybindComponent) component).keybind()).toBuilder();
             return this.deepRender(component, builder, context).build();
         } else if(component instanceof ScoreComponent) {
             final ScoreComponent sc = (ScoreComponent) component;
-            final ScoreComponent.Builder builder = ScoreComponent.builder()
+            final ScoreComponent.Builder builder = Component.score()
             .name(sc.name())
-            .objective(sc.objective())
-            .value(sc.value());
+            .objective(sc.objective());
             return this.deepRender(component, builder, context).build();
         } else if(component instanceof SelectorComponent) {
-            final SelectorComponent.Builder builder = SelectorComponent.builder(((SelectorComponent) component).pattern());
+            final SelectorComponent.Builder builder = Component.selector(((SelectorComponent) component).pattern()).toBuilder();
             return this.deepRender(component, builder, context).build();
         } else {
             return component;
@@ -59,18 +62,20 @@ public abstract class AbstractTextComponentRenderer<C> implements ComponentRende
         return builder;
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     private <B extends ComponentBuilder<?, ?>> void mergeStyle(final Component component, final B builder, final C context) {
-        builder.mergeColor(component);
-        builder.mergeDecorations(component);
-        Optional.ofNullable(component.hoverEvent()).ifPresent(hoverEvent -> {
-        builder.hoverEvent(HoverEvent.of(
-                hoverEvent.action(),
-                this.render(hoverEvent.value(), context)
-            ));
-        });
+        builder.mergeStyle(component);
+        HoverEvent hev = component.hoverEvent();
+        if (hev != null) {
+            if (hev.action() == HoverEvent.Action.SHOW_TEXT) {
+                builder.hoverEvent(HoverEvent.hoverEvent(HoverEvent.Action.SHOW_TEXT, this.render((@NonNull Component) hev.value(), context)));
+            } else {
+                builder.hoverEvent(HoverEvent.hoverEvent(hev.action(), hev.value()));
+            }
+        }
         ClickEvent cl = component.clickEvent();
         if (cl != null){
-            builder.clickEvent(ClickEvent.of(cl.action(), renderToString(cl.value(), context)));
+            builder.clickEvent(ClickEvent.clickEvent(cl.action(), renderToString(cl.value(), context)));
         }
     }
 }

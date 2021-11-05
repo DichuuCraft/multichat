@@ -3,7 +3,7 @@ package com.hadroncfy.multichat;
 import java.util.HashMap;
 import java.util.Map;
 
-import net.kyori.text.Component;
+import net.kyori.adventure.text.Component;
 
 public class Config {
     public Map<String, Component> serverAlias = new HashMap<>();

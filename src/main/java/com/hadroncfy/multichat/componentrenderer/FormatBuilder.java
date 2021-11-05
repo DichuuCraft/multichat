@@ -7,9 +7,10 @@ import java.util.regex.Pattern;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-import net.kyori.text.ComponentBuilder;
-import net.kyori.text.TextComponent;
-import net.kyori.text.Component;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.ComponentBuilder;
+import net.kyori.adventure.text.TextComponent;
+
 
 public class FormatBuilder extends AbstractTextComponentRenderer<Context> {
     private static final Pattern VAL_REGEX = Pattern.compile("\\$[a-zA-Z0-9_\\-]+");
@@ -23,41 +24,38 @@ public class FormatBuilder extends AbstractTextComponentRenderer<Context> {
         int lastIndex = 0;
         while (m.find()){
             if (lastIndex != m.start())
-                ret.add(TextComponent.of(s.substring(lastIndex, m.start())));
-                
+                ret.add(Component.text(s.substring(lastIndex, m.start())));
+
             String name = m.group();
             lastIndex = m.start() + name.length();
             Component val = null;
             if (name.equals("$$")){
-                val = TextComponent.of("$$");
-            }
-            else {
+                val = Component.text("$$");
+            } else {
                 try {
                     FormatVar f = FormatVar.valueOf(name.substring(1));
                     Component v = ctx.get(f);
                     if (v != null){
                         val = render(v, ctx.newContext());
+                    } else {
+                        val = Component.text(name);
                     }
-                    else {
-                        val = TextComponent.of(name);
-                    }
-                }
-                catch(IllegalArgumentException e){
-                    val = TextComponent.of(name);
+                } catch(IllegalArgumentException e){
+                    val = Component.text(name);
                 }
             }
             ret.add(val);
         }
         if (lastIndex < s.length()){
-            ret.add(TextComponent.of(s.substring(lastIndex)));
+            ret.add(Component.text(s.substring(lastIndex)));
         }
         return ret;
     }
 
     @Override
     protected @NonNull ComponentBuilder<?, ?> renderText(String content, @NonNull Context ctx) {
-        ComponentBuilder<?, ?> builder = TextComponent.builder();
-        renderString(content, ctx).forEach(c -> builder.append(c));
+        ComponentBuilder<?, ?> builder = Component.text();
+        renderString(content, ctx).forEach(builder::append);
         return builder;
     }
 }

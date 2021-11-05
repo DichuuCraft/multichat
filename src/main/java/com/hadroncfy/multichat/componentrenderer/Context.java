@@ -5,33 +5,32 @@ import java.util.Map;
 
 import com.velocitypowered.api.proxy.Player;
 
-import net.kyori.text.Component;
-import net.kyori.text.TextComponent;
+import net.kyori.adventure.text.Component;
 
 public class Context {
-    private Map<FormatVar, Component> global = new EnumMap<>(FormatVar.class), local = new EnumMap<>(FormatVar.class);
-    
+    private final Map<FormatVar, Component> global = new EnumMap<>(FormatVar.class), local = new EnumMap<>(FormatVar.class);
+
     public Context newContext(){
         Context ctx = new Context();
-        global.putAll(ctx.global);
+        this.global.putAll(ctx.global);
         return ctx;
     }
     public Context local(FormatVar name, Component val){
-        local.put(name, val);
+        this.local.put(name, val);
         return this;
     }
     public Context local(FormatVar name, String val){
-        local.put(name, TextComponent.of(val));
+        this.local.put(name, Component.text(val));
         return this;
     }
     public Context global(FormatVar name, Component val){
-        global.put(name, val);
+        this.global.put(name, val);
         return this;
     }
     public Context player(Player p){
-        local(FormatVar.PLAYER_NAME, TextComponent.of(p.getUsername()));
-        local(FormatVar.PLAYER_UUID, TextComponent.of(p.getUsername().toString()));
-        local(FormatVar.PLAYER_PING, TextComponent.of(p.getPing()));
+        this.local(FormatVar.PLAYER_NAME, Component.text(p.getUsername()));
+        this.local(FormatVar.PLAYER_UUID, Component.text(p.getUsername().toString()));
+        this.local(FormatVar.PLAYER_PING, Component.text(p.getPing()));
         return this;
     }
     Component get(FormatVar name){
@@ -39,7 +38,7 @@ public class Context {
         if (v != null){
             return v;
         }
-        return global.get(name);
+        return this.global.get(name);
     }
     public Component format(Component c){
         return new FormatBuilder().render(c, this);

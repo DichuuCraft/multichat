@@ -27,12 +27,12 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 
-import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 
-import net.kyori.text.Component;
-import net.kyori.text.TextComponent;
-import net.kyori.text.serializer.gson.GsonComponentSerializer;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
+
 
 @Plugin(id = "multichat", name = "MultiChat", description = "Simple multi-server chat plugin for Velocity", version = "1.0", authors = {
         "hadroncfy" })
@@ -49,7 +49,7 @@ public class MultiChat {
 
     private Context rootCtx = new Context();
 
-    private Gson gson = GsonComponentSerializer.populate(new GsonBuilder()).setPrettyPrinting().create();
+    private Gson gson = GsonComponentSerializer.gson().populator().apply(new GsonBuilder()).setPrettyPrinting().create();
 
     private File getConfigFile(){
         return new File(dataPath.toFile(), "config.json");
@@ -66,16 +66,14 @@ public class MultiChat {
                 try (InputStreamReader reader = new InputStreamReader(new FileInputStream(configFile), StandardCharsets.UTF_8)){
                     config = gson.fromJson(reader, Config.class);
                 }
-            }
-            else {
+            } else {
                 config = new Config();
             }
             try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(configFile), StandardCharsets.UTF_8)){
                 writer.write(gson.toJson(config));
             }
             logger.info("created config file");
-        }
-        catch(Throwable e){
+        } catch(Throwable e){
             logger.error("Cannot load config file", e);
         }
     }
@@ -83,7 +81,7 @@ public class MultiChat {
     @Subscribe
     public void onProxyInitialized(ProxyInitializeEvent e){
         loadConfig();
-        server.getCommandManager().register(new ServerListCommand(this), ServerListCommand.ALIAS);
+        this.server.getCommandManager().register(ServerListCommand.ALIAS, new ServerListCommand(this));
     }
 
     @Subscribe
@@ -96,10 +94,9 @@ public class MultiChat {
         if (e.getResult().isAllowed()){
             Player p = e.getPlayer();
             if (p.getCurrentServer().isPresent()){
-                server.broadcast(buildServerJoinMessage(p, p.getCurrentServer().get().getServer(), e.getResult().getServer().get()));
-            }
-            else {
-                server.broadcast(buildServerJoinMessage(p, null, e.getResult().getServer().get()));
+                broadcast(this.server, buildServerJoinMessage(p, p.getCurrentServer().get().getServer(), e.getResult().getServer().get()));
+            } else {
+                broadcast(this.server, buildServerJoinMessage(p, null, e.getResult().getServer().get()));
             }
         }
     }
@@ -113,7 +110,13 @@ public class MultiChat {
             Component alias = config.serverAlias.get(name);
             ctx.local(FormatVar.CURRENT_SERVER_NAME, name).local(FormatVar.CURRENT_SERVER_ALIAS, alias);
         });
-        server.broadcast(ctx.format(config.formats.proxyLeft));
+        broadcast(this.server, ctx.format(config.formats.proxyLeft));
+    }
+
+    private static void broadcast(ProxyServer server, Component text) {
+        for (Player player: server.getAllPlayers()) {
+            player.sendMessage(text);
+        }
     }
 
     @Subscribe
@@ -166,8 +169,7 @@ public class MultiChat {
                 .local(FormatVar.PREVIOUS_SERVER_NAME, original.getServerInfo().getName())
                 .local(FormatVar.PREVIOUS_SERVER_ALIAS, alias)
                 .format(config.formats.serverJoin);
-        }
-        else {
+        } else {
             return ctx.format(config.formats.proxyJoin);
         }
     }
@@ -175,13 +177,14 @@ public class MultiChat {
     public Component buildServerList(String senderName){
         Context ctx = rootCtx.newContext()
             .local(FormatVar.PLAYER_NAME, senderName);
-        TextComponent.Builder builder = TextComponent.builder().append(ctx.format(config.formats.serverList.title));
+        Component title = ctx.format(config.formats.serverList.title);
+        TextComponent.Builder builder = title instanceof TextComponent ? ((TextComponent) title).toBuilder() : Component.text().append(title);
         for (RegisteredServer s: server.getAllServers()){
             Component alias = config.serverAlias.get(s.getServerInfo().getName());
             ctx.local(FormatVar.CURRENT_SERVER_NAME, s.getServerInfo().getName())
                 .local(FormatVar.CURRENT_SERVER_ALIAS, alias);
-            
-            TextComponent.Builder pbuilder = TextComponent.builder();
+
+            TextComponent.Builder pbuilder = Component.text();
             Collection<Player> players = s.getPlayersConnected();
             for (Player p: players){
                 pbuilder.append(
@@ -190,13 +193,11 @@ public class MultiChat {
             }
             if (players.size() > 0){
                 ctx.local(FormatVar.PLAYER_LIST, pbuilder.build());
-            }
-            else {
+            } else {
                 ctx.local(FormatVar.PLAYER_LIST, ctx.format(config.formats.serverList.emptyPlayerList));
             }
-                
-            builder
-                .append(ctx.format(config.formats.serverList.serverItem));
+
+            builder.append(ctx.format(config.formats.serverList.serverItem));
         }
         return builder.build();
     }
